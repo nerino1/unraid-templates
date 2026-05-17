@@ -33,7 +33,7 @@
   <Config Name="Disable PCIe Cooling Response" Target="DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE" Default="false" Mode="" Description="Gen 13 and older only - set false for Gen 14+ (R740xd etc)" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
   <Config Name="Keep PCIe Cooling State On Exit" Target="KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT" Default="false" Mode="" Description="Gen 13 and older only" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
   <Config Name="Web UI Enabled" Target="WEBUI_ENABLED" Default="true" Mode="" Description="Enable the web UI graph on WEBUI_PORT" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
-  <Config Name="Web UI Port" Target="WEBUI_PORT" Default="8080" Mode="tcp" Description="Port for the web UI temperature graphs" Type="Port" Display="always" Required="false" Mask="false">8080</Config>
-  <Config Name="Log Path" Target="LOG_PATH" Default="/app/logs" Mode="/mnt/user/appdata/dell-idrac-fan-controller/logs" Description="Path inside container where CSV log is stored" Type="Path" Display="always" Required="false" Mask="false">/app/logs</Config>
+  <Config Name="Web UI Port" Target="8080" Default="8080" Mode="tcp" Description="Port for the web UI temperature graphs" Type="Port" Display="always" Required="false" Mask="false">8080</Config>
+  <Config Name="Log Storage Path" Target="/app/logs" Default="/mnt/user/appdata/dell-idrac-fan-controller/logs" Mode="rw" Description="Host path where CSV log is stored (persists across restarts)" Type="Path" Display="always" Required="false" Mask="false">/mnt/user/appdata/dell-idrac-fan-controller/logs</Config>
   <Config Name="Log Retention Days" Target="LOG_RETENTION_DAYS" Default="365" Mode="" Description="How many days of logs to keep" Type="Variable" Display="always" Required="false" Mask="false">365</Config>
 </Container>
