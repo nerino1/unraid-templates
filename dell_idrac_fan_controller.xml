@@ -13,92 +13,23 @@
   <Category>Tools:</Category>
   <WebUI/>
   <TemplateURL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/dell_idrac_fan_controller.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/nerino1/unraid-templates/main/dell_idrac_fan_controller_icon.png</Icon>
+  <Icon>https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/dell.png</Icon>
   <ExtraParams/>
   <Description>Controls Dell PowerEdge fan speeds via iDRAC IPMI. Supports standard, stepped, and interpolated fan curve modes.</Description>
-  <Networking>
-    <Mode>none</Mode>
-  </Networking>
-  <Environment>
-    <Variable>
-      <Value>192.168.0.x</Value>
-      <Name>IDRAC_HOST</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>root</Value>
-      <Name>IDRAC_USERNAME</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>calvin</Value>
-      <Name>IDRAC_PASSWORD</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>stepped</Value>
-      <Name>FAN_CONTROL_MODE</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>60</Value>
-      <Name>CHECK_INTERVAL</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>5</Value>
-      <Name>FAN_SPEED</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>45</Value>
-      <Name>STEPPED_MID_TEMP</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>12</Value>
-      <Name>STEPPED_MID_FAN_SPEED</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>55</Value>
-      <Name>STEPPED_HIGH_TEMP</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>20</Value>
-      <Name>STEPPED_HIGH_FAN_SPEED</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>35</Value>
-      <Name>INTERP_LOW_TEMP</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>55</Value>
-      <Name>INTERP_HIGH_TEMP</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>30</Value>
-      <Name>INTERP_HIGH_FAN_SPEED</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>70</Value>
-      <Name>CPU_TEMPERATURE_THRESHOLD</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>false</Value>
-      <Name>DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE</Name>
-      <Mode/>
-    </Variable>
-    <Variable>
-      <Value>false</Value>
-      <Name>KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT</Name>
-      <Mode/>
-    </Variable>
-  </Environment>
+  <Config Name="iDRAC Host" Target="IDRAC_HOST" Default="192.168.0.x" Mode="" Description="IP address of your iDRAC, or 'local' if running on the server itself" Type="Variable" Display="always" Required="true" Mask="false">192.168.0.x</Config>
+  <Config Name="iDRAC Username" Target="IDRAC_USERNAME" Default="root" Mode="" Description="iDRAC login username" Type="Variable" Display="always" Required="true" Mask="false">root</Config>
+  <Config Name="iDRAC Password" Target="IDRAC_PASSWORD" Default="calvin" Mode="" Description="iDRAC login password" Type="Variable" Display="always" Required="true" Mask="true">calvin</Config>
+  <Config Name="Fan Control Mode" Target="FAN_CONTROL_MODE" Default="stepped" Mode="" Description="standard | stepped | interpolate" Type="Variable" Display="always" Required="true" Mask="false">stepped</Config>
+  <Config Name="Check Interval (seconds)" Target="CHECK_INTERVAL" Default="60" Mode="" Description="How often to read temps and adjust fan speed" Type="Variable" Display="always" Required="true" Mask="false">60</Config>
+  <Config Name="Baseline Fan Speed %" Target="FAN_SPEED" Default="5" Mode="" Description="Minimum fan speed % used in all modes" Type="Variable" Display="always" Required="true" Mask="false">5</Config>
+  <Config Name="CPU Temperature Threshold (Dell hand-back)" Target="CPU_TEMPERATURE_THRESHOLD" Default="70" Mode="" Description="Degrees C above which Dell takes back fan control" Type="Variable" Display="always" Required="true" Mask="false">70</Config>
+  <Config Name="[Stepped] Mid Temp °C" Target="STEPPED_MID_TEMP" Default="45" Mode="" Description="Temp to switch to mid fan speed (stepped mode only)" Type="Variable" Display="always" Required="false" Mask="false">45</Config>
+  <Config Name="[Stepped] Mid Fan Speed %" Target="STEPPED_MID_FAN_SPEED" Default="12" Mode="" Description="Fan speed % at mid stage (stepped mode only)" Type="Variable" Display="always" Required="false" Mask="false">12</Config>
+  <Config Name="[Stepped] High Temp °C" Target="STEPPED_HIGH_TEMP" Default="55" Mode="" Description="Temp to switch to high fan speed (stepped mode only)" Type="Variable" Display="always" Required="false" Mask="false">55</Config>
+  <Config Name="[Stepped] High Fan Speed %" Target="STEPPED_HIGH_FAN_SPEED" Default="20" Mode="" Description="Fan speed % at high stage (stepped mode only)" Type="Variable" Display="always" Required="false" Mask="false">20</Config>
+  <Config Name="[Interpolate] Ramp Start Temp °C" Target="INTERP_LOW_TEMP" Default="35" Mode="" Description="Temp where fan ramping begins (interpolate mode only)" Type="Variable" Display="always" Required="false" Mask="false">35</Config>
+  <Config Name="[Interpolate] Ramp End Temp °C" Target="INTERP_HIGH_TEMP" Default="55" Mode="" Description="Temp at max fan speed (interpolate mode only)" Type="Variable" Display="always" Required="false" Mask="false">55</Config>
+  <Config Name="[Interpolate] Max Fan Speed %" Target="INTERP_HIGH_FAN_SPEED" Default="30" Mode="" Description="Max fan speed % at ramp end (interpolate mode only)" Type="Variable" Display="always" Required="false" Mask="false">30</Config>
+  <Config Name="Disable PCIe Cooling Response" Target="DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE" Default="false" Mode="" Description="Gen 13 and older only - set false for Gen 14+ (R740xd etc)" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
+  <Config Name="Keep PCIe Cooling State On Exit" Target="KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT" Default="false" Mode="" Description="Gen 13 and older only" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
 </Container>
