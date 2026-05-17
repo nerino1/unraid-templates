@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>Dell-iDRAC-Fan-Controller</Name>
-  <Repository>YOUR_DOCKERHUB_USERNAME/dell_idrac_fan_controller:latest</Repository>
-  <Registry>https://hub.docker.com/r/YOUR_DOCKERHUB_USERNAME/dell_idrac_fan_controller</Registry>
+  <Repository>nerino1/dell_idrac_fan_controller:latest</Repository>
+  <Registry>https://hub.docker.com/r/nerino1/dell_idrac_fan_controller</Registry>
   <Network>none</Network>
   <MyIP/>
   <Shell>bash</Shell>
@@ -12,8 +12,8 @@
   <Overview>Controls Dell PowerEdge fan speeds via iDRAC IPMI with stepped or interpolated fan curves.</Overview>
   <Category>Tools:</Category>
   <WebUI/>
-  <TemplateURL>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/unraid-templates/main/dell_idrac_fan_controller.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/unraid-templates/main/dell_idrac_fan_controller_icon.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/dell_idrac_fan_controller.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/nerino1/unraid-templates/main/dell_idrac_fan_controller_icon.png</Icon>
   <ExtraParams/>
   <Description>Controls Dell PowerEdge fan speeds via iDRAC IPMI. Supports standard, stepped, and interpolated fan curve modes.</Description>
   <Networking>
