@@ -3,7 +3,7 @@
   <Name>Dell-iDRAC-Fan-Controller</Name>
   <Repository>nerino1/dell_idrac_fan_controller:latest</Repository>
   <Registry>https://hub.docker.com/r/nerino1/dell_idrac_fan_controller</Registry>
-  <Network>none</Network>
+  <Network>bridge</Network>
   <MyIP/>
   <Shell>bash</Shell>
   <Privileged>false</Privileged>
@@ -14,7 +14,7 @@
   <WebUI/>
   <TemplateURL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/dell_idrac_fan_controller.xml</TemplateURL>
   <Icon>https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/dell.png</Icon>
-  <ExtraParams>--no-healthcheck</ExtraParams>
+  <ExtraParams/>
   <Description>Controls Dell PowerEdge fan speeds via iDRAC IPMI. Supports standard, stepped, and interpolated fan curve modes.</Description>
   <Config Name="iDRAC Host" Target="IDRAC_HOST" Default="192.168.0.x" Mode="" Description="IP address of your iDRAC, or 'local' if running on the server itself" Type="Variable" Display="always" Required="true" Mask="false">192.168.0.x</Config>
   <Config Name="iDRAC Username" Target="IDRAC_USERNAME" Default="root" Mode="" Description="iDRAC login username" Type="Variable" Display="always" Required="true" Mask="false">root</Config>
