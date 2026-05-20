@@ -61,7 +61,7 @@ $mytiles[$pluginname]['column1'] = <<<EOT
   <tr>
     <td>
       <span id="idrac-fan-pct">{$fan_display}</span> &mdash; <span id="idrac-fan-rpm">{$rpm_display}</span> RPM<br>
-      CPU: <span id="idrac-cpu-temp">{$cpu_temp}</span>C &mdash; Inlet: <span id="idrac-inlet-temp">{$inlet_temp}</span>C<br>
+      CPU: <span id="idrac-cpu-temp">{$cpu_temp}</span>C<br>
       <a href="#" id="idrac-override-btn" class="{$override_class}" onclick="idracToggleOverride();return false;" style="font-size:11px;font-weight:600;text-decoration:none;">{$override_label}</a><br>
       <span style="font-size:9px;color:#555;" id="idrac-time">{$timestamp}</span>
     </td>
@@ -83,7 +83,6 @@ function idracRefresh() {
     $('#idrac-fan-pct').text(fanPct);
     $('#idrac-fan-rpm').text(rpm);
     $('#idrac-cpu-temp').text(s.cpu1_temp);
-    $('#idrac-inlet-temp').text(s.inlet_temp);
     $('#idrac-time').text(s.timestamp);
     var profile = s.fan_profile || '';
     var short = profile;
