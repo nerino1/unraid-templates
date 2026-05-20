@@ -1,6 +1,4 @@
-Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'6.11.9','>')"
 Menu="Dashboard:0"
-Icon="tachometer"
 ---
 <?php
 $pluginname = "iDRAC Fans";
@@ -37,7 +35,7 @@ $profile    = $status['fan_profile']   ?? 'No data';
 $timestamp  = $status['timestamp']     ?? '--';
 $override   = $status['override_active'] ?? false;
 
-$fan_display = ($fan_pct === null) ? '--' : (($fan_pct == 100) ? 'Dell' : $fan_pct . '%');
+$fan_display = ($fan_pct === null) ? '--' : (($fan_pct == 100) ? 'Dell Auto' : $fan_pct . '%');
 $rpm_display = ($fan_rpm > 0) ? number_format($fan_rpm) : '--';
 
 // Shorten profile string for tile display
@@ -51,8 +49,8 @@ elseif (preg_match('/Manual override/i', $profile))
 elseif (preg_match('/Dell default/i', $profile))
   $short_profile = 'Dell Auto';
 
-$override_btn_class = $override ? 'red-text' : 'green-text';
-$override_btn_label = $override ? '&#9940; Override ON &mdash; click to disable' : '&#9989; Enable Override (50%)';
+$override_class = $override ? 'red-text' : 'green-text';
+$override_label = $override ? '&#9940; Override ON &mdash; click to disable' : '&#9989; Enable Override (50%)';
 
 $mytiles[$pluginname]['column1'] = <<<EOT
 <tbody id="tblIdracFans" title="_(iDRAC Fans)_">
@@ -67,32 +65,32 @@ $mytiles[$pluginname]['column1'] = <<<EOT
   </tr>
   <tr>
     <td>
-      <table style="width:100%;border:none;">
+      <table style="width:100%;border:none;border-collapse:collapse;">
         <tr>
-          <td style="padding:2px 8px 2px 0;color:#aaa;font-size:11px;">_(Fan Speed)_</td>
-          <td style="font-size:15px;font-weight:600;" id="idrac-fan-pct">{$fan_display}</td>
+          <td class="w72" style="color:#aaa;font-size:11px;">_(Fan Speed)_</td>
+          <td style="font-size:16px;font-weight:600;" id="idrac-fan-pct">{$fan_display}</td>
         </tr>
         <tr>
-          <td style="padding:2px 8px 2px 0;color:#aaa;font-size:11px;">_(Avg RPM)_</td>
-          <td style="font-size:15px;font-weight:600;" id="idrac-fan-rpm">{$rpm_display} <span style="font-size:11px;color:#aaa;">RPM</span></td>
+          <td class="w72" style="color:#aaa;font-size:11px;">_(Avg RPM)_</td>
+          <td style="font-size:16px;font-weight:600;" id="idrac-fan-rpm">{$rpm_display} <span style="font-size:11px;color:#aaa;">RPM</span></td>
         </tr>
         <tr>
-          <td style="padding:2px 8px 2px 0;color:#aaa;font-size:11px;">_(CPU Temp)_</td>
-          <td style="font-size:15px;font-weight:600;" id="idrac-cpu-temp">{$cpu_temp} <span style="font-size:11px;color:#aaa;">°C</span></td>
+          <td class="w72" style="color:#aaa;font-size:11px;">_(CPU Temp)_</td>
+          <td style="font-size:16px;font-weight:600;" id="idrac-cpu-temp">{$cpu_temp}&thinsp;<span style="font-size:11px;color:#aaa;">°C</span></td>
         </tr>
         <tr>
-          <td style="padding:2px 8px 2px 0;color:#aaa;font-size:11px;">_(Inlet Temp)_</td>
-          <td style="font-size:15px;font-weight:600;" id="idrac-inlet-temp">{$inlet_temp} <span style="font-size:11px;color:#aaa;">°C</span></td>
+          <td class="w72" style="color:#aaa;font-size:11px;">_(Inlet Temp)_</td>
+          <td style="font-size:16px;font-weight:600;" id="idrac-inlet-temp">{$inlet_temp}&thinsp;<span style="font-size:11px;color:#aaa;">°C</span></td>
         </tr>
         <tr>
-          <td colspan="2" style="padding-top:6px;">
-            <a href="#" class="{$override_btn_class}" id="idrac-override-btn" onclick="idracToggleOverride();return false;" style="font-size:11px;font-weight:600;">
-              {$override_btn_label}
+          <td colspan="2" style="padding-top:8px;">
+            <a href="#" id="idrac-override-btn" class="{$override_class}" onclick="idracToggleOverride();return false;" style="font-size:11px;font-weight:600;text-decoration:none;">
+              {$override_label}
             </a>
           </td>
         </tr>
         <tr>
-          <td colspan="2" style="font-size:9px;color:#555;padding-top:4px;" id="idrac-time">{$timestamp}</td>
+          <td colspan="2" style="font-size:9px;color:#555;padding-top:6px;" id="idrac-time">{$timestamp}</td>
         </tr>
       </table>
     </td>
@@ -113,19 +111,19 @@ function idracToggleOverride() {
 
 function idracRefresh() {
   $.getJSON('/mnt/user/appdata/dell-idrac-fan-controller/logs/status.json?_=' + Date.now(), function(s) {
-    var fanPct = (s.fan_speed_pct == 100) ? 'Dell' : s.fan_speed_pct + '%';
+    var fanPct = (s.fan_speed_pct == 100) ? 'Dell Auto' : s.fan_speed_pct + '%';
     var rpm    = s.avg_fan_rpm > 0 ? parseInt(s.avg_fan_rpm).toLocaleString() : '--';
 
     $('#idrac-fan-pct').text(fanPct);
     $('#idrac-fan-rpm').html(rpm + ' <span style="font-size:11px;color:#aaa;">RPM</span>');
-    $('#idrac-cpu-temp').html(s.cpu1_temp + ' <span style="font-size:11px;color:#aaa;">°C</span>');
-    $('#idrac-inlet-temp').html(s.inlet_temp + ' <span style="font-size:11px;color:#aaa;">°C</span>');
+    $('#idrac-cpu-temp').html(s.cpu1_temp + '<span style="font-size:11px;color:#aaa;">&thinsp;°C</span>');
+    $('#idrac-inlet-temp').html(s.inlet_temp + '<span style="font-size:11px;color:#aaa;">&thinsp;°C</span>');
     $('#idrac-time').text(s.timestamp);
 
     var profile = s.fan_profile || '';
     var short = profile;
     var m;
-    if ((m = profile.match(/Stepped.*(Low|Mid|High)/i))) short = 'Stepped · ' + m[1];
+    if ((m = profile.match(/Stepped.*(Low|Mid|High)/i))) short = 'Stepped \u00b7 ' + m[1];
     else if (/Interpolated/i.test(profile)) short = 'Interpolated';
     else if (/Manual override/i.test(profile)) short = 'Override Active';
     else if (/Dell default/i.test(profile)) short = 'Dell Auto';
@@ -134,10 +132,10 @@ function idracRefresh() {
     var btn = $('#idrac-override-btn');
     if (s.override_active) {
       btn.removeClass('green-text').addClass('red-text')
-         .html('&#9940; Override ON &mdash; click to disable');
+         .html('\u26d4 Override ON \u2014 click to disable');
     } else {
       btn.removeClass('red-text').addClass('green-text')
-         .html('&#9989; Enable Override (50%)');
+         .html('\u2705 Enable Override (50%)');
     }
   });
 }
