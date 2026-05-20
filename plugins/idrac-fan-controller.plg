@@ -29,6 +29,10 @@ mkdir -p /usr/local/emhttp/plugins/idrac-fan-controller
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller.page</URL>
 </FILE>
 
+<FILE Name="&pluginDir;/override.php">
+<URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/override.php</URL>
+</FILE>
+
 <FILE Run="/bin/bash">
 <INLINE>
 echo "iDRAC Fan Controller plugin installed successfully"
