@@ -1,143 +1,158 @@
-Menu="Dashboard"
-Title="iDRAC Fan"
+Menu="Dashboard:99"
 Icon="idrac-fan-controller.png"
+Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'6.12.0-beta5', '>')"
 ---
 <?php
-$status_file = '/mnt/user/appdata/dell-idrac-fan-controller/logs/status.json';
-$override_file = '/mnt/user/appdata/dell-idrac-fan-controller/logs/fan_override';
-$boost_script = '/mnt/user/scripts/idrac-fan-boost.sh';
-$restore_script = '/mnt/user/scripts/idrac-fan-restore.sh';
+require_once('/usr/local/emhttp/plugins/dynamix/include/Wrappers.php');
 
-// Handle override toggle via POST
+$status_file  = '/mnt/user/appdata/dell-idrac-fan-controller/logs/status.json';
+$override_file = '/mnt/user/appdata/dell-idrac-fan-controller/logs/fan_override';
+
+// Handle override toggle AJAX POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  header('Content-Type: application/json');
   $action = $_POST['action'] ?? '';
   if ($action === 'enable_override') {
     $speed = intval($_POST['speed'] ?? 50);
     file_put_contents($override_file, $speed);
+    echo json_encode(['ok' => true, 'override_active' => true]);
   } elseif ($action === 'disable_override') {
     if (file_exists($override_file)) unlink($override_file);
+    echo json_encode(['ok' => true, 'override_active' => false]);
   }
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => true]);
   exit;
 }
 
-// Read status JSON
+// Read status JSON written by the container every CHECK_INTERVAL
 $status = [];
 if (file_exists($status_file)) {
   $status = json_decode(file_get_contents($status_file), true) ?? [];
 }
 
-$fan_pct     = $status['fan_speed_pct'] ?? '--';
-$fan_rpm     = $status['avg_fan_rpm'] ?? '--';
-$cpu_temp    = $status['cpu1_temp'] ?? '--';
-$inlet_temp  = $status['inlet_temp'] ?? '--';
-$profile     = $status['fan_profile'] ?? 'Unknown';
-$timestamp   = $status['timestamp'] ?? '--';
-$override    = $status['override_active'] ?? false;
-$model       = trim($status['server_model'] ?? 'Dell PowerEdge');
+$fan_pct    = $status['fan_speed_pct'] ?? null;
+$fan_rpm    = $status['avg_fan_rpm']   ?? 0;
+$cpu_temp   = $status['cpu1_temp']     ?? '--';
+$inlet_temp = $status['inlet_temp']    ?? '--';
+$profile    = $status['fan_profile']   ?? 'Unknown';
+$timestamp  = $status['timestamp']     ?? '--';
+$override   = $status['override_active'] ?? false;
 
-// Shorten profile for display
+$fan_display = ($fan_pct === null) ? '--' : (($fan_pct == 100) ? 'Dell' : $fan_pct . '%');
+$rpm_display = ($fan_rpm > 0) ? number_format($fan_rpm) : '--';
+
+// Shorten profile string for tile display
 $short_profile = $profile;
-if (preg_match('/Stepped.*?(Low|Mid|High)/i', $profile, $m)) {
-  $short_profile = 'Stepped - ' . $m[1];
-} elseif (preg_match('/Interpolated/i', $profile)) {
+if (preg_match('/Stepped.*(Low|Mid|High)/i', $profile, $m))
+  $short_profile = 'Stepped · ' . $m[1];
+elseif (preg_match('/Interpolated/i', $profile))
   $short_profile = 'Interpolated';
-} elseif (preg_match('/Manual override/i', $profile)) {
-  $short_profile = 'Override';
-} elseif (preg_match('/Dell default/i', $profile)) {
+elseif (preg_match('/Manual override/i', $profile))
+  $short_profile = 'Override Active';
+elseif (preg_match('/Dell default/i', $profile))
   $short_profile = 'Dell Auto';
-}
-
-$fan_display = ($fan_pct == 100) ? 'Dell' : $fan_pct . '%';
-$rpm_display = ($fan_rpm > 0) ? number_format($fan_rpm) . ' RPM' : '--';
 ?>
+
 <style>
-#idrac-tile { font-family: inherit; }
-.idrac-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 10px; }
-.idrac-stat .label { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 0.04em; }
-.idrac-stat .value { font-size: 22px; font-weight: 600; color: #fff; line-height: 1.1; }
-.idrac-stat .unit  { font-size: 11px; color: #aaa; }
-.idrac-profile { font-size: 11px; color: #8bc; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.idrac-override-btn { width: 100%; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 11px; font-weight: 600; }
-.idrac-override-btn.on  { background: #c0392b; color: #fff; }
-.idrac-override-btn.off { background: #27ae60; color: #fff; }
-.idrac-time { font-size: 10px; color: #666; margin-top: 6px; text-align: right; }
+#idrac-tile-wrap .idrac-row        { display:flex; align-items:baseline; margin-bottom:2px; }
+#idrac-tile-wrap .idrac-label      { font-size:11px; color:#aaa; width:72px; flex-shrink:0; }
+#idrac-tile-wrap .idrac-val        { font-size:13px; color:#ddd; font-weight:600; }
+#idrac-tile-wrap .idrac-unit       { font-size:11px; color:#aaa; margin-left:2px; }
+#idrac-tile-wrap .idrac-profile    { font-size:11px; color:#7ac; margin:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#idrac-tile-wrap .idrac-btn        { margin-top:6px; padding:3px 10px; border-radius:4px; border:none; cursor:pointer; font-size:11px; font-weight:600; width:100%; }
+#idrac-tile-wrap .idrac-btn.active { background:#922; color:#fff; }
+#idrac-tile-wrap .idrac-btn.idle   { background:#292; color:#fff; }
+#idrac-tile-wrap .idrac-time       { font-size:9px; color:#555; margin-top:4px; }
 </style>
-<div id="idrac-tile">
-  <div class="idrac-grid">
-    <div class="idrac-stat">
-      <div class="label">Fan Speed</div>
-      <div class="value" id="idrac-fan-pct"><?= htmlspecialchars($fan_display) ?></div>
-    </div>
-    <div class="idrac-stat">
-      <div class="label">Avg RPM</div>
-      <div class="value" id="idrac-fan-rpm" style="font-size:16px"><?= htmlspecialchars($rpm_display) ?></div>
-    </div>
-    <div class="idrac-stat">
-      <div class="label">CPU Temp</div>
-      <div class="value" id="idrac-cpu-temp"><?= htmlspecialchars($cpu_temp) ?></div>
-      <div class="unit">°C</div>
-    </div>
-    <div class="idrac-stat">
-      <div class="label">Inlet Temp</div>
-      <div class="value" id="idrac-inlet-temp"><?= htmlspecialchars($inlet_temp) ?></div>
-      <div class="unit">°C</div>
-    </div>
-  </div>
-  <div class="idrac-profile" id="idrac-profile" title="<?= htmlspecialchars($profile) ?>"><?= htmlspecialchars($short_profile) ?></div>
-  <button class="idrac-override-btn <?= $override ? 'on' : 'off' ?>" id="idrac-override-btn"
-    onclick="idracToggleOverride()">
-    <?= $override ? '🔴 Override Active — Click to Disable' : '🟢 Enable Fan Override (50%)' ?>
-  </button>
-  <div class="idrac-time" id="idrac-time">Updated: <?= htmlspecialchars($timestamp) ?></div>
-</div>
+
+<table cellspacing="0" cellpadding="0" class="dashboard box1">
+  <thead sort="50">
+    <tr class="hidden"><td></td><td colspan="3"></td><td></td></tr>
+  </thead>
+  <tbody class="sortable" sort="50">
+    <tr>
+      <td></td>
+      <td class="next" colspan="3">
+        <i class="fa fa-tachometer icon" style="font-size:32px;vertical-align:top;"></i>
+        <div class="section">_(iDRAC Fans)_</div>
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td></td>
+      <td colspan="3">
+        <div id="idrac-tile-wrap">
+          <div class="idrac-row">
+            <span class="idrac-label">_(Fan Speed)_</span>
+            <span class="idrac-val" id="idrac-fan-pct"><?= htmlspecialchars($fan_display) ?></span>
+          </div>
+          <div class="idrac-row">
+            <span class="idrac-label">_(Avg RPM)_</span>
+            <span class="idrac-val" id="idrac-fan-rpm"><?= htmlspecialchars($rpm_display) ?></span>
+            <span class="idrac-unit">RPM</span>
+          </div>
+          <div class="idrac-row">
+            <span class="idrac-label">_(CPU Temp)_</span>
+            <span class="idrac-val" id="idrac-cpu-temp"><?= htmlspecialchars($cpu_temp) ?></span>
+            <span class="idrac-unit">°C</span>
+          </div>
+          <div class="idrac-row">
+            <span class="idrac-label">_(Inlet Temp)_</span>
+            <span class="idrac-val" id="idrac-inlet-temp"><?= htmlspecialchars($inlet_temp) ?></span>
+            <span class="idrac-unit">°C</span>
+          </div>
+          <div class="idrac-profile" id="idrac-profile" title="<?= htmlspecialchars($profile) ?>">
+            <?= htmlspecialchars($short_profile) ?>
+          </div>
+          <button class="idrac-btn <?= $override ? 'active' : 'idle' ?>" id="idrac-override-btn" onclick="idracToggleOverride()">
+            <?= $override ? '🔴 _(Override On)_ — _(Click to disable)_' : '🟢 _(Enable Override)_ (50%)' ?>
+          </button>
+          <div class="idrac-time" id="idrac-time"><?= htmlspecialchars($timestamp) ?></div>
+        </div>
+      </td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
 <script>
 function idracToggleOverride() {
   var btn = document.getElementById('idrac-override-btn');
-  var isActive = btn.classList.contains('on');
-  var fd = new FormData();
-  fd.append('action', isActive ? 'disable_override' : 'enable_override');
-  fd.append('speed', '50');
-  fetch('/plugins/idrac-fan-controller/idrac-fan-controller.page', { method: 'POST', body: fd })
-    .then(function() { idracRefresh(); });
+  var isActive = btn.classList.contains('active');
+  $.post('/plugins/idrac-fan-controller/idrac-fan-controller.page',
+    { action: isActive ? 'disable_override' : 'enable_override', speed: 50 },
+    function(data) { idracRefresh(); }
+  );
 }
 
 function idracRefresh() {
-  fetch('/mnt/user/appdata/dell-idrac-fan-controller/logs/status.json?_=' + Date.now())
-    .catch(function() {
-      // Fall back to reading via plugin endpoint
-      return fetch('/plugins/idrac-fan-controller/status.php?_=' + Date.now());
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(s) {
-      var fanPct = s.fan_speed_pct == 100 ? 'Dell' : s.fan_speed_pct + '%';
-      var rpm    = s.avg_fan_rpm > 0 ? s.avg_fan_rpm.toLocaleString() + ' RPM' : '--';
-      document.getElementById('idrac-fan-pct').textContent   = fanPct;
-      document.getElementById('idrac-fan-rpm').textContent   = rpm;
-      document.getElementById('idrac-cpu-temp').textContent  = s.cpu1_temp;
-      document.getElementById('idrac-inlet-temp').textContent = s.inlet_temp;
-      document.getElementById('idrac-time').textContent      = 'Updated: ' + s.timestamp;
+  $.getJSON('/mnt/user/appdata/dell-idrac-fan-controller/logs/status.json?_=' + Date.now(), function(s) {
+    var fanPct = (s.fan_speed_pct == 100) ? 'Dell' : s.fan_speed_pct + '%';
+    var rpm    = s.avg_fan_rpm > 0 ? s.avg_fan_rpm.toLocaleString() : '--';
 
-      var profile = s.fan_profile || '';
-      var short = profile;
-      if (/Stepped.*(Low|Mid|High)/i.test(profile)) short = 'Stepped - ' + profile.match(/Low|Mid|High/i)[0];
-      else if (/Interpolated/i.test(profile)) short = 'Interpolated';
-      else if (/Manual override/i.test(profile)) short = 'Override';
-      else if (/Dell default/i.test(profile)) short = 'Dell Auto';
-      document.getElementById('idrac-profile').textContent = short;
-      document.getElementById('idrac-profile').title = profile;
+    $('#idrac-fan-pct').text(fanPct);
+    $('#idrac-fan-rpm').text(rpm);
+    $('#idrac-cpu-temp').text(s.cpu1_temp);
+    $('#idrac-inlet-temp').text(s.inlet_temp);
+    $('#idrac-time').text(s.timestamp);
 
-      var btn = document.getElementById('idrac-override-btn');
-      if (s.override_active) {
-        btn.className = 'idrac-override-btn on';
-        btn.textContent = '🔴 Override Active — Click to Disable';
-      } else {
-        btn.className = 'idrac-override-btn off';
-        btn.textContent = '🟢 Enable Fan Override (50%)';
-      }
-    }).catch(function() {});
+    var profile = s.fan_profile || '';
+    var short = profile;
+    var m;
+    if ((m = profile.match(/Stepped.*(Low|Mid|High)/i))) short = 'Stepped · ' + m[1];
+    else if (/Interpolated/i.test(profile)) short = 'Interpolated';
+    else if (/Manual override/i.test(profile)) short = 'Override Active';
+    else if (/Dell default/i.test(profile)) short = 'Dell Auto';
+    $('#idrac-profile').text(short).attr('title', profile);
+
+    var btn = $('#idrac-override-btn');
+    if (s.override_active) {
+      btn.removeClass('idle').addClass('active').text('🔴 Override On — Click to disable');
+    } else {
+      btn.removeClass('active').addClass('idle').text('🟢 Enable Override (50%)');
+    }
+  });
 }
 
+// Refresh every 30 seconds
 setInterval(idracRefresh, 30000);
 </script>
