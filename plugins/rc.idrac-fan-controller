@@ -1,0 +1,65 @@
+#!/bin/bash
+# Service control script for iDRAC Fan Controller
+# Usage: rc.idrac-fan-controller start|stop|restart|status
+
+PLUGIN_DIR="/usr/local/emhttp/plugins/idrac-fan-controller"
+SCRIPT="/boot/config/plugins/idrac-fan-controller/idrac-fan-controller.sh"
+PID_FILE="/var/run/idrac-fan-controller.pid"
+LOG_DIR="/mnt/user/appdata/idrac-fan-controller"
+LOG_FILE="$LOG_DIR/service.log"
+
+start() {
+  if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+    echo "iDRAC Fan Controller is already running (PID $(cat $PID_FILE))"
+    return 1
+  fi
+  mkdir -p "$LOG_DIR"
+  echo "$(date): Starting iDRAC Fan Controller" >> "$LOG_FILE"
+  bash "$SCRIPT" >> "$LOG_FILE" 2>&1 &
+  echo $! > "$PID_FILE"
+  echo "iDRAC Fan Controller started (PID $!)"
+}
+
+stop() {
+  if [ ! -f "$PID_FILE" ]; then
+    echo "iDRAC Fan Controller is not running"
+    return 1
+  fi
+  local PID=$(cat "$PID_FILE")
+  if kill -0 $PID 2>/dev/null; then
+    echo "$(date): Stopping iDRAC Fan Controller (PID $PID)" >> "$LOG_FILE"
+    kill -TERM $PID
+    sleep 3
+    # Force kill if still running
+    kill -0 $PID 2>/dev/null && kill -9 $PID
+  fi
+  rm -f "$PID_FILE"
+  echo "iDRAC Fan Controller stopped"
+}
+
+status() {
+  if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+    echo "running"
+    return 0
+  else
+    echo "stopped"
+    return 1
+  fi
+}
+
+restart() {
+  stop
+  sleep 2
+  start
+}
+
+case "$1" in
+  start)   start ;;
+  stop)    stop ;;
+  restart) restart ;;
+  status)  status ;;
+  *)
+    echo "Usage: $0 start|stop|restart|status"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,153 @@
+Menu="Stats"
+Title="iDRAC Fans"
+Icon="tachometer"
+---
+<?php
+$csv_file = '/mnt/user/appdata/idrac-fan-controller/fan_controller.csv';
+$exists = file_exists($csv_file);
+?>
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+.idrac-wrap { padding: 20px; }
+.idrac-controls { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.idrac-btn { padding:5px 14px; border-radius:5px; border:1px solid #555; background:#222; color:#aaa; cursor:pointer; font-size:13px; }
+.idrac-btn:hover { border-color:#7ac; color:#7ac; }
+.idrac-btn.active { background:#1a3a5c; border-color:#7ac; color:#7ac; }
+.idrac-status { margin-left:auto; font-size:12px; color:#777; }
+.idrac-status.ok { color:#68d391; }
+.idrac-status.err { color:#fc8181; }
+.idrac-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px; }
+.idrac-stat { background:#1a1a2e; border:1px solid #333; border-radius:8px; padding:12px 14px; }
+.idrac-stat .lbl { font-size:11px; color:#777; text-transform:uppercase; }
+.idrac-stat .val { font-size:20px; font-weight:700; color:#ddd; }
+.idrac-stat .unt { font-size:11px; color:#777; }
+.idrac-card { background:#1a1a2e; border:1px solid #333; border-radius:8px; padding:16px; margin-bottom:14px; }
+.idrac-card h3 { font-size:12px; color:#888; text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px; }
+canvas { max-height:200px; }
+</style>
+</head>
+<body>
+<div class="idrac-wrap">
+  <div class="idrac-controls">
+    <button class="idrac-btn active" onclick="setRange('1d',this)">24h</button>
+    <button class="idrac-btn" onclick="setRange('7d',this)">7 days</button>
+    <button class="idrac-btn" onclick="setRange('30d',this)">30 days</button>
+    <button class="idrac-btn" onclick="setRange('365d',this)">1 year</button>
+    <span class="idrac-status" id="idrac-status">Loading...</span>
+  </div>
+  <div class="idrac-stats">
+    <div class="idrac-stat"><div class="lbl">CPU Temp</div><div class="val" id="s-cpu">--</div><div class="unt">°C</div></div>
+    <div class="idrac-stat"><div class="lbl">Inlet Temp</div><div class="val" id="s-inlet">--</div><div class="unt">°C</div></div>
+    <div class="idrac-stat"><div class="lbl">Fan Speed</div><div class="val" id="s-fan">--</div><div class="unt">%</div></div>
+    <div class="idrac-stat"><div class="lbl">Avg RPM</div><div class="val" id="s-rpm">--</div><div class="unt">RPM</div></div>
+    <div class="idrac-stat"><div class="lbl">Profile</div><div class="val" style="font-size:13px;" id="s-profile">--</div><div class="unt">&nbsp;</div></div>
+  </div>
+  <div class="idrac-card"><h3>Temperatures</h3><canvas id="tempChart"></canvas></div>
+  <div class="idrac-card"><h3>Fan Speed %</h3><canvas id="fanChart"></canvas></div>
+  <div class="idrac-card"><h3>Fan RPM</h3><canvas id="rpmChart"></canvas></div>
+</div>
+<script>
+var currentRange = '1d';
+var allData = [];
+var tempChart, fanChart, rpmChart;
+
+var CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: true,
+  animation: false,
+  plugins: {
+    legend: { labels: { color:'#aaa', boxWidth:12, font:{size:11} } },
+    tooltip: { mode:'index', intersect:false }
+  },
+  scales: {
+    x: { type:'time', ticks:{ color:'#666', maxTicksLimit:8 }, grid:{ color:'#2a2a2a' } },
+    y: { ticks:{ color:'#666' }, grid:{ color:'#2a2a2a' } }
+  }
+};
+
+function setRange(r, btn) {
+  currentRange = r;
+  document.querySelectorAll('.idrac-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  renderCharts();
+}
+
+function filterData(data, range) {
+  var now = new Date();
+  var ms = { '1d':86400000, '7d':604800000, '30d':2592000000, '365d':31536000000 };
+  var cutoff = new Date(now - ms[range]);
+  return data.filter(function(r){ return new Date(r.ts) >= cutoff; });
+}
+
+function renderCharts() {
+  var data = filterData(allData, currentRange);
+  if (!data.length) return;
+
+  var labels  = data.map(function(r){ return new Date(r.ts); });
+  var cpu1    = data.map(function(r){ return +r.cpu1; });
+  var inlet   = data.map(function(r){ return +r.inlet; });
+  var exhaust = data.map(function(r){ return r.exhaust !== '' ? +r.exhaust : null; });
+  var fan     = data.map(function(r){ return +r.fan; });
+  var rpm     = data.map(function(r){ return +r.rpm; });
+
+  var last = data[data.length-1];
+  document.getElementById('s-cpu').textContent    = last.cpu1;
+  document.getElementById('s-inlet').textContent  = last.inlet;
+  document.getElementById('s-fan').textContent    = last.fan == '100' ? 'Dell' : last.fan;
+  document.getElementById('s-rpm').textContent    = parseInt(last.rpm).toLocaleString();
+  document.getElementById('s-profile').textContent = last.profile.replace(/Stepped fan curve - /,'').replace(/ \(.*\)/,'');
+
+  if (tempChart) tempChart.destroy();
+  if (fanChart) fanChart.destroy();
+  if (rpmChart) rpmChart.destroy();
+
+  tempChart = new Chart(document.getElementById('tempChart'), { type:'line', data:{
+    labels: labels,
+    datasets: [
+      { label:'CPU', data:cpu1, borderColor:'#fc8181', backgroundColor:'rgba(252,129,129,0.1)', tension:0.3, pointRadius:0, fill:true },
+      { label:'Inlet', data:inlet, borderColor:'#63b3ed', backgroundColor:'rgba(99,179,237,0.1)', tension:0.3, pointRadius:0, fill:true },
+      { label:'Exhaust', data:exhaust, borderColor:'#f6ad55', backgroundColor:'rgba(246,173,85,0.1)', tension:0.3, pointRadius:0, fill:true, spanGaps:true }
+    ]
+  }, options: Object.assign({}, CHART_OPTS, { scales: Object.assign({}, CHART_OPTS.scales, { y: Object.assign({}, CHART_OPTS.scales.y, { title:{ display:true, text:'°C', color:'#666' } }) }) }) });
+
+  fanChart = new Chart(document.getElementById('fanChart'), { type:'line', data:{
+    labels: labels,
+    datasets: [{ label:'Fan %', data:fan, borderColor:'#68d391', backgroundColor:'rgba(104,211,145,0.15)', tension:0.3, pointRadius:0, fill:true }]
+  }, options: Object.assign({}, CHART_OPTS, { scales: Object.assign({}, CHART_OPTS.scales, { y: Object.assign({}, CHART_OPTS.scales.y, { min:0, max:105 }) }) }) });
+
+  rpmChart = new Chart(document.getElementById('rpmChart'), { type:'line', data:{
+    labels: labels,
+    datasets: [{ label:'Avg RPM', data:rpm, borderColor:'#b794f4', backgroundColor:'rgba(183,148,244,0.15)', tension:0.3, pointRadius:0, fill:true }]
+  }, options: CHART_OPTS });
+}
+
+function loadData() {
+  fetch('/mnt/user/appdata/idrac-fan-controller/fan_controller.csv?_=' + Date.now())
+    .then(function(r){ return r.text(); })
+    .then(function(text) {
+      var lines = text.trim().split('\n');
+      // header: timestamp,inlet_temp,cpu1_temp,cpu2_temp,exhaust_temp,fan_profile,fan_speed_pct,avg_fan_rpm
+      allData = lines.slice(1).map(function(line) {
+        var p = line.split(',');
+        return { ts:p[0], inlet:p[1], cpu1:p[2], cpu2:p[3], exhaust:p[4], profile:p[5], fan:p[6], rpm:p[7]||'0' };
+      }).filter(function(r){ return r.ts; });
+      var st = document.getElementById('idrac-status');
+      st.textContent = allData.length + ' readings';
+      st.className = 'idrac-status ok';
+      renderCharts();
+    }).catch(function(e) {
+      var st = document.getElementById('idrac-status');
+      st.textContent = 'Error loading CSV';
+      st.className = 'idrac-status err';
+    });
+}
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
