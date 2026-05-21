@@ -1,0 +1,254 @@
+Menu="Settings"
+Title="iDRAC Fan Controller"
+Icon="tachometer"
+---
+<?php
+$cfg_file = '/boot/config/plugins/idrac-fan-controller/idrac-fan-controller.cfg';
+$rc_script = '/etc/rc.d/rc.idrac-fan-controller';
+
+// Handle form save
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
+  $fields = [
+    'IDRAC_HOST', 'IDRAC_USERNAME', 'IDRAC_PASSWORD',
+    'FAN_CONTROL_MODE', 'FAN_SPEED', 'CPU_TEMPERATURE_THRESHOLD', 'CHECK_INTERVAL',
+    'STEPPED_MID_TEMP', 'STEPPED_MID_FAN_SPEED',
+    'STEPPED_HIGH_TEMP', 'STEPPED_HIGH_FAN_SPEED',
+    'INTERP_LOW_TEMP', 'INTERP_HIGH_TEMP', 'INTERP_HIGH_FAN_SPEED',
+    'LOG_RETENTION_DAYS',
+    'DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE',
+    'KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT'
+  ];
+
+  $lines = ["# iDRAC Fan Controller Configuration\n# Saved by Settings UI - " . date('Y-m-d H:i:s') . "\n"];
+  foreach ($fields as $f) {
+    $val = $_POST[$f] ?? '';
+    $val = preg_replace('/[^a-zA-Z0-9@._\-]/', '', $val); // sanitize
+    // Password can have special chars - handle separately
+    if ($f === 'IDRAC_PASSWORD') {
+      $val = htmlspecialchars_decode($_POST[$f] ?? '');
+      $val = str_replace('"', '\\"', $val);
+    }
+    $lines[] = "{$f}=\"{$val}\"";
+  }
+
+  file_put_contents($cfg_file, implode("\n", $lines) . "\n");
+
+  // Restart service if requested
+  if (isset($_POST['restart'])) {
+    shell_exec("$rc_script restart > /dev/null 2>&1 &");
+    $msg = "Settings saved and service restarting...";
+  } else {
+    $msg = "Settings saved. Restart the service to apply changes.";
+  }
+}
+
+// Load current config
+$cfg = [];
+if (file_exists($cfg_file)) {
+  $lines = file($cfg_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+  foreach ($lines as $line) {
+    if (substr(trim($line), 0, 1) === '#') continue;
+    if (strpos($line, '=') !== false) {
+      list($key, $val) = explode('=', $line, 2);
+      $cfg[trim($key)] = trim($val, " \t\n\r\0\x0B\"'");
+    }
+  }
+}
+
+// Defaults
+$c = function($key, $default='') use ($cfg) {
+  return htmlspecialchars($cfg[$key] ?? $default);
+};
+
+$mode = $cfg['FAN_CONTROL_MODE'] ?? 'stepped';
+?>
+
+<link rel="stylesheet" href="/webGui/styles/tabs.css">
+<style>
+.idrac-section { margin-bottom:24px; }
+.idrac-section h3 { font-size:13px; font-weight:600; color:#7ac; border-bottom:1px solid #333; padding-bottom:6px; margin-bottom:12px; text-transform:uppercase; letter-spacing:.05em; }
+.idrac-row { display:flex; align-items:center; margin-bottom:10px; }
+.idrac-row label { width:260px; flex-shrink:0; font-size:13px; color:#ccc; }
+.idrac-row input[type=text], .idrac-row input[type=password], .idrac-row select {
+  width:200px; padding:5px 8px; background:#1a1a1a; border:1px solid #444;
+  border-radius:4px; color:#ddd; font-size:13px;
+}
+.idrac-row input:focus, .idrac-row select:focus { border-color:#7ac; outline:none; }
+.idrac-row .hint { font-size:11px; color:#666; margin-left:10px; }
+.idrac-mode-section { display:none; }
+.idrac-mode-section.active { display:block; }
+.idrac-save { margin-top:20px; display:flex; gap:10px; align-items:center; }
+.idrac-save input[type=submit] { padding:7px 20px; background:#1a3a5c; border:1px solid #7ac; border-radius:5px; color:#7ac; cursor:pointer; font-size:13px; }
+.idrac-save input[type=submit]:hover { background:#2a4a7c; }
+.idrac-msg { padding:8px 14px; border-radius:5px; font-size:13px; background:#1a3a1a; border:1px solid #3a6a3a; color:#68d391; }
+.idrac-svc { display:flex; gap:8px; margin-bottom:20px; align-items:center; }
+.idrac-svc-btn { padding:5px 14px; border-radius:4px; border:1px solid #555; background:#222; color:#aaa; cursor:pointer; font-size:12px; }
+.idrac-svc-btn:hover { border-color:#7ac; color:#7ac; }
+.idrac-svc-status { font-size:12px; }
+</style>
+
+<?php if (!empty($msg)): ?>
+<div class="idrac-msg"><?= htmlspecialchars($msg) ?></div><br>
+<?php endif; ?>
+
+<div class="idrac-svc">
+  <strong style="font-size:13px;color:#ccc;">Service:</strong>
+  <span id="svc-status" class="idrac-svc-status">Checking...</span>
+  <button class="idrac-svc-btn" onclick="svcAction('start')">Start</button>
+  <button class="idrac-svc-btn" onclick="svcAction('stop')">Stop</button>
+  <button class="idrac-svc-btn" onclick="svcAction('restart')">Restart</button>
+</div>
+
+<form method="POST" action="/Settings/idrac-fan-controller-settings">
+<input type="hidden" name="save" value="1">
+
+<div class="idrac-section">
+  <h3>iDRAC Connection</h3>
+  <div class="idrac-row">
+    <label>iDRAC Host</label>
+    <input type="text" name="IDRAC_HOST" value="<?=$c('IDRAC_HOST','192.168.0.x')?>">
+    <span class="hint">IP address of iDRAC, or 'local'</span>
+  </div>
+  <div class="idrac-row">
+    <label>Username</label>
+    <input type="text" name="IDRAC_USERNAME" value="<?=$c('IDRAC_USERNAME','root')?>">
+  </div>
+  <div class="idrac-row">
+    <label>Password</label>
+    <input type="password" name="IDRAC_PASSWORD" value="<?=$c('IDRAC_PASSWORD','calvin')?>">
+  </div>
+</div>
+
+<div class="idrac-section">
+  <h3>Fan Control</h3>
+  <div class="idrac-row">
+    <label>Control Mode</label>
+    <select name="FAN_CONTROL_MODE" id="fan-mode-select" onchange="updateMode(this.value)">
+      <option value="standard" <?=$mode=='standard'?'selected':''?>>Standard (single speed)</option>
+      <option value="stepped"  <?=$mode=='stepped' ?'selected':''?>>Stepped (3 stage)</option>
+      <option value="interpolate" <?=$mode=='interpolate'?'selected':''?>>Interpolate (smooth ramp)</option>
+    </select>
+  </div>
+  <div class="idrac-row">
+    <label>Baseline Fan Speed %</label>
+    <input type="text" name="FAN_SPEED" value="<?=$c('FAN_SPEED','5')?>">
+    <span class="hint">Minimum / idle fan speed</span>
+  </div>
+  <div class="idrac-row">
+    <label>Dell Hand-back Threshold °C</label>
+    <input type="text" name="CPU_TEMPERATURE_THRESHOLD" value="<?=$c('CPU_TEMPERATURE_THRESHOLD','70')?>">
+    <span class="hint">Above this, Dell takes control</span>
+  </div>
+  <div class="idrac-row">
+    <label>Check Interval (seconds)</label>
+    <input type="text" name="CHECK_INTERVAL" value="<?=$c('CHECK_INTERVAL','60')?>">
+  </div>
+</div>
+
+<div class="idrac-section idrac-mode-section <?=$mode=='stepped'?'active':''?>" id="mode-stepped">
+  <h3>Stepped Mode Settings</h3>
+  <div class="idrac-row">
+    <label>Mid Stage Temp °C</label>
+    <input type="text" name="STEPPED_MID_TEMP" value="<?=$c('STEPPED_MID_TEMP','45')?>">
+    <span class="hint">Switch to mid speed above this temp</span>
+  </div>
+  <div class="idrac-row">
+    <label>Mid Stage Fan Speed %</label>
+    <input type="text" name="STEPPED_MID_FAN_SPEED" value="<?=$c('STEPPED_MID_FAN_SPEED','12')?>">
+  </div>
+  <div class="idrac-row">
+    <label>High Stage Temp °C</label>
+    <input type="text" name="STEPPED_HIGH_TEMP" value="<?=$c('STEPPED_HIGH_TEMP','55')?>">
+    <span class="hint">Switch to high speed above this temp</span>
+  </div>
+  <div class="idrac-row">
+    <label>High Stage Fan Speed %</label>
+    <input type="text" name="STEPPED_HIGH_FAN_SPEED" value="<?=$c('STEPPED_HIGH_FAN_SPEED','20')?>">
+  </div>
+</div>
+
+<div class="idrac-section idrac-mode-section <?=$mode=='interpolate'?'active':''?>" id="mode-interpolate">
+  <h3>Interpolation Mode Settings</h3>
+  <div class="idrac-row">
+    <label>Ramp Start Temp °C</label>
+    <input type="text" name="INTERP_LOW_TEMP" value="<?=$c('INTERP_LOW_TEMP','35')?>">
+    <span class="hint">Fan begins ramping above this temp</span>
+  </div>
+  <div class="idrac-row">
+    <label>Ramp End Temp °C</label>
+    <input type="text" name="INTERP_HIGH_TEMP" value="<?=$c('INTERP_HIGH_TEMP','55')?>">
+    <span class="hint">Max fan speed reached at this temp</span>
+  </div>
+  <div class="idrac-row">
+    <label>Max Fan Speed %</label>
+    <input type="text" name="INTERP_HIGH_FAN_SPEED" value="<?=$c('INTERP_HIGH_FAN_SPEED','30')?>">
+  </div>
+</div>
+
+<div class="idrac-section">
+  <h3>Logging</h3>
+  <div class="idrac-row">
+    <label>Log Retention Days</label>
+    <input type="text" name="LOG_RETENTION_DAYS" value="<?=$c('LOG_RETENTION_DAYS','365')?>">
+  </div>
+</div>
+
+<div class="idrac-section">
+  <h3>Advanced (Gen 13 and older only)</h3>
+  <div class="idrac-row">
+    <label>Disable PCIe Cooling Response</label>
+    <select name="DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE">
+      <option value="false" <?=$c('DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE','false')=='false'?'selected':''?>>false</option>
+      <option value="true"  <?=$c('DISABLE_THIRD_PARTY_PCIE_CARD_DELL_DEFAULT_COOLING_RESPONSE','false')=='true' ?'selected':''?>>true</option>
+    </select>
+    <span class="hint">Set false for R740xd and newer</span>
+  </div>
+  <div class="idrac-row">
+    <label>Keep PCIe State On Exit</label>
+    <select name="KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT">
+      <option value="false" <?=$c('KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT','false')=='false'?'selected':''?>>false</option>
+      <option value="true"  <?=$c('KEEP_THIRD_PARTY_PCIE_CARD_COOLING_RESPONSE_STATE_ON_EXIT','false')=='true' ?'selected':''?>>true</option>
+    </select>
+  </div>
+</div>
+
+<div class="idrac-save">
+  <input type="submit" value="Save Settings">
+  <input type="submit" name="restart" value="Save &amp; Restart Service">
+</div>
+</form>
+
+<script>
+function updateMode(mode) {
+  document.querySelectorAll('.idrac-mode-section').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  var section = document.getElementById('mode-' + mode);
+  if (section) section.classList.add('active');
+}
+
+function svcAction(action) {
+  fetch('/plugins/idrac-fan-controller/control.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=' + action
+  }).then(function(r){ return r.json(); })
+    .then(function(data) { checkStatus(); });
+}
+
+function checkStatus() {
+  fetch('/plugins/idrac-fan-controller/control.php?action=status')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var el = document.getElementById('svc-status');
+      if (data.status === 'running') {
+        el.innerHTML = '<span style="color:#68d391">&#9679; Running</span>';
+      } else {
+        el.innerHTML = '<span style="color:#fc8181">&#9679; Stopped</span>';
+      }
+    });
+}
+
+checkStatus();
+setInterval(checkStatus, 10000);
+</script>
