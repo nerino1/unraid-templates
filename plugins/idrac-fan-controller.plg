@@ -18,77 +18,80 @@
 - Backup override via flag file
 - Watchdog cron to auto-restart if stopped
 - Graceful Dell handback on shutdown/reboot
+- Settings page under Settings menu
 </CHANGES>
 
 <!-- Create directories -->
 <FILE Run="/bin/bash">
 <INLINE>
-mkdir -p &pluginDir;
-mkdir -p &configDir;
+mkdir -p /usr/local/emhttp/plugins/idrac-fan-controller
+mkdir -p /boot/config/plugins/idrac-fan-controller
 mkdir -p /mnt/user/appdata/idrac-fan-controller
 </INLINE>
 </FILE>
 
 <!-- Install plugin UI files -->
-<FILE Name="&pluginDir;/idrac-fan-controller.page">
+<FILE Name="/usr/local/emhttp/plugins/idrac-fan-controller/idrac-fan-controller.page">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller.page</URL>
 </FILE>
 
-<FILE Name="&pluginDir;/fan-graphs.page">
+<FILE Name="/usr/local/emhttp/plugins/idrac-fan-controller/fan-graphs.page">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/fan-graphs.page</URL>
 </FILE>
 
-<FILE Name="&pluginDir;/idrac-fan-controller-settings.page">
+<FILE Name="/usr/local/emhttp/plugins/idrac-fan-controller/idrac-fan-controller-settings.page">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller-settings.page</URL>
 </FILE>
 
-<FILE Name="&pluginDir;/control.php">
+<FILE Name="/usr/local/emhttp/plugins/idrac-fan-controller/control.php">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/control.php</URL>
 </FILE>
 
-<!-- Install service scripts -->
-<FILE Name="&configDir;/idrac-fan-controller.sh">
+<!-- Install service scripts to flash drive -->
+<FILE Name="/boot/config/plugins/idrac-fan-controller/idrac-fan-controller.sh">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller.sh</URL>
 </FILE>
 
-<FILE Name="/etc/rc.d/rc.idrac-fan-controller">
+<FILE Name="/boot/config/plugins/idrac-fan-controller/rc.idrac-fan-controller">
 <URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/rc.idrac-fan-controller</URL>
 </FILE>
 
-<!-- Install default config only if one doesn't already exist -->
+<!-- Install UI files to flash drive for boot persistence -->
 <FILE Run="/bin/bash">
 <INLINE>
-if [ ! -f &configDir;/idrac-fan-controller.cfg ]; then
-  wget -q -O &configDir;/idrac-fan-controller.cfg \
+cp /usr/local/emhttp/plugins/idrac-fan-controller/idrac-fan-controller.page /boot/config/plugins/idrac-fan-controller/
+cp /usr/local/emhttp/plugins/idrac-fan-controller/fan-graphs.page /boot/config/plugins/idrac-fan-controller/
+cp /usr/local/emhttp/plugins/idrac-fan-controller/idrac-fan-controller-settings.page /boot/config/plugins/idrac-fan-controller/
+cp /usr/local/emhttp/plugins/idrac-fan-controller/control.php /boot/config/plugins/idrac-fan-controller/
+cp /boot/config/plugins/idrac-fan-controller/rc.idrac-fan-controller /etc/rc.d/rc.idrac-fan-controller
+chmod +x /etc/rc.d/rc.idrac-fan-controller
+chmod +x /boot/config/plugins/idrac-fan-controller/idrac-fan-controller.sh
+</INLINE>
+</FILE>
+
+<!-- Install default config only if one does not already exist -->
+<FILE Run="/bin/bash">
+<INLINE>
+if [ ! -f /boot/config/plugins/idrac-fan-controller/idrac-fan-controller.cfg ]; then
+  wget -q -O /boot/config/plugins/idrac-fan-controller/idrac-fan-controller.cfg \
     https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller.cfg
 fi
 </INLINE>
 </FILE>
 
-<!-- Set permissions -->
-<FILE Run="/bin/bash">
-<INLINE>
-chmod +x /etc/rc.d/rc.idrac-fan-controller
-chmod +x &configDir;/idrac-fan-controller.sh
-</INLINE>
+<!-- Install shutdown hook script -->
+<FILE Name="/boot/config/plugins/idrac-fan-controller/shutdown.sh">
+<URL>https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/shutdown.sh</URL>
 </FILE>
 
-<!-- Install shutdown hook -->
+<!-- Register shutdown hook -->
 <FILE Run="/bin/bash">
 <INLINE>
-# Add shutdown hook if not already present
+chmod +x /boot/config/plugins/idrac-fan-controller/shutdown.sh
 if ! grep -q "idrac-fan-controller" /etc/rc.d/rc.local.stop 2>/dev/null; then
-  cat >> /etc/rc.d/rc.local.stop << 'EOF'
-
-# iDRAC Fan Controller - hand back to Dell on shutdown
-CFG="/boot/config/plugins/idrac-fan-controller/idrac-fan-controller.cfg"
-if [ -f "$CFG" ]; then
-  source "$CFG"
-  LOGIN="lanplus -H $IDRAC_HOST -U $IDRAC_USERNAME -P $IDRAC_PASSWORD"
-  [[ "$IDRAC_HOST" == "local" ]] && LOGIN="open"
-  /usr/bin/ipmitool -I $LOGIN raw 0x30 0x30 0x01 0x01 > /dev/null 2>&1
-fi
-EOF
+  echo "" >> /etc/rc.d/rc.local.stop
+  echo "# iDRAC Fan Controller - hand back to Dell on shutdown" >> /etc/rc.d/rc.local.stop
+  echo "/boot/config/plugins/idrac-fan-controller/shutdown.sh" >> /etc/rc.d/rc.local.stop
 fi
 </INLINE>
 </FILE>
@@ -96,9 +99,7 @@ fi
 <!-- Install watchdog cron -->
 <FILE Run="/bin/bash">
 <INLINE>
-# Add watchdog cron job - checks every minute if service is running
-CRON_LINE="* * * * * /etc/rc.d/rc.idrac-fan-controller status > /dev/null 2>&1 || /etc/rc.d/rc.idrac-fan-controller start > /dev/null 2>&1"
-( crontab -l 2>/dev/null | grep -v "idrac-fan-controller"; echo "$CRON_LINE" ) | crontab -
+( crontab -l 2>/dev/null | grep -v "idrac-fan-controller"; echo "* * * * * /etc/rc.d/rc.idrac-fan-controller status > /dev/null 2>&amp;1 || /etc/rc.d/rc.idrac-fan-controller start > /dev/null 2>&amp;1" ) | crontab -
 </INLINE>
 </FILE>
 
@@ -106,28 +107,15 @@ CRON_LINE="* * * * * /etc/rc.d/rc.idrac-fan-controller status > /dev/null 2>&1 |
 <FILE Run="/bin/bash">
 <INLINE>
 if ! grep -q "idrac-fan-controller" /boot/config/go; then
-  cat >> /boot/config/go << 'EOF'
-
-# iDRAC Fan Controller plugin
-mkdir -p /usr/local/emhttp/plugins/idrac-fan-controller
-cp /boot/config/plugins/idrac-fan-controller/*.page /usr/local/emhttp/plugins/idrac-fan-controller/ 2>/dev/null
-cp /boot/config/plugins/idrac-fan-controller/control.php /usr/local/emhttp/plugins/idrac-fan-controller/ 2>/dev/null
-cp /boot/config/plugins/idrac-fan-controller/rc.idrac-fan-controller /etc/rc.d/ 2>/dev/null
-chmod +x /etc/rc.d/rc.idrac-fan-controller
-/etc/rc.d/rc.idrac-fan-controller start
-EOF
+  echo "" >> /boot/config/go
+  echo "# iDRAC Fan Controller plugin" >> /boot/config/go
+  echo "mkdir -p /usr/local/emhttp/plugins/idrac-fan-controller" >> /boot/config/go
+  echo "cp /boot/config/plugins/idrac-fan-controller/*.page /usr/local/emhttp/plugins/idrac-fan-controller/ 2>/dev/null" >> /boot/config/go
+  echo "cp /boot/config/plugins/idrac-fan-controller/control.php /usr/local/emhttp/plugins/idrac-fan-controller/ 2>/dev/null" >> /boot/config/go
+  echo "cp /boot/config/plugins/idrac-fan-controller/rc.idrac-fan-controller /etc/rc.d/ 2>/dev/null" >> /boot/config/go
+  echo "chmod +x /etc/rc.d/rc.idrac-fan-controller" >> /boot/config/go
+  echo "/etc/rc.d/rc.idrac-fan-controller start" >> /boot/config/go
 fi
-</INLINE>
-</FILE>
-
-<!-- Copy UI files to boot for persistence -->
-<FILE Run="/bin/bash">
-<INLINE>
-cp &pluginDir;/idrac-fan-controller.page &configDir;/idrac-fan-controller.page 2>/dev/null
-cp &pluginDir;/fan-graphs.page &configDir;/fan-graphs.page 2>/dev/null
-cp &pluginDir;/idrac-fan-controller-settings.page &configDir;/idrac-fan-controller-settings.page 2>/dev/null
-cp &pluginDir;/control.php &configDir;/control.php 2>/dev/null
-cp /etc/rc.d/rc.idrac-fan-controller &configDir;/rc.idrac-fan-controller 2>/dev/null
 </INLINE>
 </FILE>
 
@@ -136,9 +124,8 @@ cp /etc/rc.d/rc.idrac-fan-controller &configDir;/rc.idrac-fan-controller 2>/dev/
 <INLINE>
 /etc/rc.d/rc.idrac-fan-controller start
 echo ""
-echo "iDRAC Fan Controller plugin installed successfully."
-echo "Edit your settings at: /boot/config/plugins/idrac-fan-controller/idrac-fan-controller.cfg"
-echo "Then restart the service: /etc/rc.d/rc.idrac-fan-controller restart"
+echo "iDRAC Fan Controller installed successfully."
+echo "Go to Settings > iDRAC Fan Controller to configure."
 echo ""
 </INLINE>
 </FILE>
