@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name        "idrac-fan-controller">
   <!ENTITY author      "nerino1">
-  <!ENTITY version     "2026.05.19">
+  <!ENTITY version     "2026.05.20">
   <!ENTITY pluginURL   "https://raw.githubusercontent.com/nerino1/unraid-templates/main/plugins/idrac-fan-controller.plg">
   <!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
   <!ENTITY configDir   "/boot/config/plugins/&name;">
