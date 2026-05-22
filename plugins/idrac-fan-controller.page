@@ -85,7 +85,7 @@ function idracToggleOverride() {
   var btn = $('#idrac-override-btn');
   btn.text('Processing...').css('pointer-events','none').removeClass('red-text green-text').addClass('orange-text');
   var isActive = btn.data('active');
-  $.post('<?=$control_url?>', { action: isActive ? 'disable_override' : 'enable_override', speed: 50 }, function() { idracRefresh(); });
+  $.post('<?=$control_url?>', { action: isActive ? 'disable_override' : 'enable_override', speed: 50 }, function() { setTimeout(idracRefresh, 1000); });
 }
 
 function idracServiceToggle() {
