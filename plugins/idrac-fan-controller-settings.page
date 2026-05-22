@@ -228,12 +228,11 @@ function updateMode(mode) {
 }
 
 function svcAction(action) {
-  fetch('/plugins/idrac-fan-controller/control.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'action=' + action
-  }).then(function(r){ return r.json(); })
-    .then(function(data) { checkStatus(); });
+  var statusEl = document.getElementById('svc-status');
+  statusEl.innerHTML = '<span style="color:#f6ad55">&#9679; ' + action.charAt(0).toUpperCase() + action.slice(1) + 'ing...</span>';
+  $.post('/plugins/idrac-fan-controller/control.php', { action: action }, function(data) {
+    setTimeout(checkStatus, 2000);
+  });
 }
 
 function checkStatus() {
