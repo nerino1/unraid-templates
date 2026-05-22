@@ -1,7 +1,8 @@
 <?php
-$rc_script    = '/etc/rc.d/rc.idrac-fan-controller';
-$pid_file     = '/var/run/idrac-fan-controller.pid';
-$override_file= '/mnt/user/appdata/idrac-fan-controller/fan_override';
+$rc_script     = '/etc/rc.d/rc.idrac-fan-controller';
+$pid_file      = '/var/run/idrac-fan-controller.pid';
+$override_file = '/mnt/user/appdata/idrac-fan-controller/fan_override';
+$stopped_flag  = '/tmp/idrac-fan-controller.stopped';
 
 header('Content-Type: application/json');
 
@@ -9,18 +10,21 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {
   case 'start':
+    if (file_exists($stopped_flag)) unlink($stopped_flag);
     exec("nohup $rc_script start > /tmp/idrac-start.log 2>&1 &");
     sleep(2);
     echo json_encode(['ok' => true, 'status' => getStatus()]);
     break;
 
   case 'stop':
+    touch($stopped_flag);
     exec("$rc_script stop > /tmp/idrac-stop.log 2>&1");
     sleep(1);
     echo json_encode(['ok' => true, 'status' => getStatus()]);
     break;
 
   case 'restart':
+    if (file_exists($stopped_flag)) unlink($stopped_flag);
     exec("nohup $rc_script restart > /tmp/idrac-restart.log 2>&1 &");
     sleep(3);
     echo json_encode(['ok' => true, 'status' => getStatus()]);
